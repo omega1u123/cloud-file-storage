@@ -1,9 +1,6 @@
 package com.example.filemanager.service;
 
-import io.minio.ListObjectsArgs;
-import io.minio.MinioClient;
-import io.minio.PutObjectArgs;
-import io.minio.Result;
+import io.minio.*;
 import io.minio.errors.*;
 import io.minio.messages.Item;
 import lombok.RequiredArgsConstructor;
@@ -12,7 +9,9 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
@@ -26,6 +25,8 @@ import java.util.stream.Collectors;
 public class FileServiceImpl implements FileService{
 
     private final MinioClient minioClient;
+
+
     @Override
     public Map<String, List<String>> getFileNames(String directory) throws ServerException, InsufficientDataException, ErrorResponseException, IOException, NoSuchAlgorithmException, InvalidKeyException, InvalidResponseException, XmlParserException, InternalException {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
@@ -80,4 +81,30 @@ public class FileServiceImpl implements FileService{
                 .contentType(file.getContentType())
                 .build());
     }
+
+    @Override
+    public void uploadFolder(String folderName, String directory, MultipartFile[] files) throws ServerException, InsufficientDataException, ErrorResponseException, IOException, NoSuchAlgorithmException, InvalidKeyException, InvalidResponseException, XmlParserException, InternalException {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        String bucketName = auth.getName();
+        String fullObjectName = (directory != null && !directory.isEmpty()) ? directory + "/" + folderName : folderName;
+        InputStream emptyContent = new ByteArrayInputStream(new byte[0]);
+        minioClient.putObject(
+                PutObjectArgs.builder()
+                        .bucket(bucketName)
+                        .object(fullObjectName)
+                        .stream(emptyContent, -1, 10485760)
+                        .build()
+        );
+
+        for(MultipartFile file : files){
+            minioClient.putObject(PutObjectArgs.builder()
+                    .bucket(bucketName)
+                    .object(file.getOriginalFilename())
+                    .stream(file.getInputStream(), file.getSize(), -1)
+                    .contentType(file.getContentType())
+                    .build());
+        }
+    }
+
+
 }

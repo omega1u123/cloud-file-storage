@@ -52,4 +52,10 @@ public class HomeController {
         return "redirect:/home";
     }
 
+    @PostMapping("/uploadFolder")
+    public String uploadFolder(@RequestParam String folderName, @RequestParam(required = false) String directory, @RequestParam("filesToUpload")MultipartFile[] files) throws ServerException, InsufficientDataException, ErrorResponseException, IOException, NoSuchAlgorithmException, InvalidKeyException, InvalidResponseException, XmlParserException, InternalException {
+        fileService.uploadFolder(folderName, directory, files);
+        return "redirect:/home";
+    }
+
 }

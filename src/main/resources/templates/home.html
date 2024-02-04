@@ -101,8 +101,9 @@
 
                 <!-- Modal Body -->
                 <div class="modal-body">
-                    <form enctype="multipart/form-data" action="/your-upload-endpoint" method="post">
-                        <input class="folderUploadInput" type="file" webkitdirectory mozdirectory />
+                    <form enctype="multipart/form-data" action="/uploadFolder" method="post">
+                        <input class="filesToUpload" type="file" name="filesToUpload" webkitdirectory mozdirectory multiple />
+                        <input id="folderName" name="folderName"  placeholder="Folder name" type="text"/>
                         <br>
                         <button type="submit" class="btn btn-primary" style="margin-top: 10px;">Upload</button>
                     </form>
