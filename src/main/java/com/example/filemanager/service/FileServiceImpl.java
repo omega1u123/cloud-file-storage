@@ -179,8 +179,18 @@ public class FileServiceImpl implements FileService{
         }
     }
     @Override
-    public void downloadFile(String fileName) {
+    public InputStream downloadFile(String fileName, String directory) throws ServerException, InsufficientDataException, ErrorResponseException, IOException, NoSuchAlgorithmException, InvalidKeyException, InvalidResponseException, XmlParserException, InternalException {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        String bucketName = auth.getName();
+        String objectName = directory != null && !directory.isEmpty() ? directory + "/" + fileName : fileName;
 
+        InputStream fileStream = minioClient.getObject(
+                io.minio.GetObjectArgs.builder()
+                        .bucket(bucketName)
+                        .object(objectName)
+                        .build()
+        );
+        return fileStream;
     }
 
 }
