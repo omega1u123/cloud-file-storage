@@ -1,17 +1,13 @@
 package com.example.filemanager.controller;
 
 import com.example.filemanager.service.FileService;
-import io.minio.ListObjectsArgs;
-import io.minio.MinioClient;
-import io.minio.PutObjectArgs;
-import io.minio.Result;
 import io.minio.errors.*;
-import io.minio.messages.Item;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -20,11 +16,8 @@ import org.springframework.web.multipart.MultipartFile;
 import java.io.IOException;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
-import java.util.stream.StreamSupport;
 
 @Controller
 @RequiredArgsConstructor
@@ -41,8 +34,12 @@ public class HomeController {
 
         model.addAttribute("folders", filesAndFolders.get("folders"));
         model.addAttribute("files", filesAndFolders.get("files"));
-        model.addAttribute("currentDirectory", "");
 
+        if(filesAndFolders.get("currentDirectory").get(0) == null ){
+            model.addAttribute("currentDirectory", "");
+            return "home";
+        }
+        model.addAttribute("currentDirectory", filesAndFolders.get("currentDirectory"));
         return "home";
     }
 
@@ -53,8 +50,23 @@ public class HomeController {
     }
 
     @PostMapping("/uploadFolder")
-    public String uploadFolder(@RequestParam String folderName, @RequestParam(required = false) String directory, @RequestParam("filesToUpload")MultipartFile[] files) throws ServerException, InsufficientDataException, ErrorResponseException, IOException, NoSuchAlgorithmException, InvalidKeyException, InvalidResponseException, XmlParserException, InternalException {
-        fileService.uploadFolder(folderName, directory, files);
+    public String uploadFolder(@RequestParam(required = false) String directory, @RequestParam("filesToUpload")MultipartFile[] files) throws ServerException, InsufficientDataException, ErrorResponseException, IOException, NoSuchAlgorithmException, InvalidKeyException, InvalidResponseException, XmlParserException, InternalException {
+        fileService.uploadFolder(directory, files);
+        return "redirect:/home";
+    }
+
+    @GetMapping("/search")
+    public String findFile(@RequestParam String query, Model model) throws ServerException, InsufficientDataException, ErrorResponseException, IOException, NoSuchAlgorithmException, InvalidKeyException, InvalidResponseException, XmlParserException, InternalException {
+        Map<String, List<String>> filesAndFolders = fileService.getFileNames(query);
+
+        model.addAttribute("folders", filesAndFolders.get("folders"));
+        model.addAttribute("files", filesAndFolders.get("files"));
+        return "home";
+    }
+
+    @GetMapping("/deleteFile")
+    public String deleteFile(@RequestParam String fileName, @RequestParam(required = false) String directory) throws ServerException, InsufficientDataException, ErrorResponseException, IOException, NoSuchAlgorithmException, InvalidKeyException, InvalidResponseException, XmlParserException, InternalException {
+        fileService.deleteFile(fileName, directory);
         return "redirect:/home";
     }
 

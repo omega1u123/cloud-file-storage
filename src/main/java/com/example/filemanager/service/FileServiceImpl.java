@@ -2,6 +2,7 @@ package com.example.filemanager.service;
 
 import io.minio.*;
 import io.minio.errors.*;
+import io.minio.messages.DeleteObject;
 import io.minio.messages.Item;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.Authentication;
@@ -14,10 +15,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
@@ -67,7 +65,7 @@ public class FileServiceImpl implements FileService{
         filesAndFolders.put("files", fileNamesWithoutFolders);
         filesAndFolders.put("folders", folderNames);
 
-
+        filesAndFolders.put("currentDirectory", Collections.singletonList(directory));
         return filesAndFolders;
     }
 
@@ -83,18 +81,9 @@ public class FileServiceImpl implements FileService{
     }
 
     @Override
-    public void uploadFolder(String folderName, String directory, MultipartFile[] files) throws ServerException, InsufficientDataException, ErrorResponseException, IOException, NoSuchAlgorithmException, InvalidKeyException, InvalidResponseException, XmlParserException, InternalException {
+    public void uploadFolder(String directory, MultipartFile[] files) throws ServerException, InsufficientDataException, ErrorResponseException, IOException, NoSuchAlgorithmException, InvalidKeyException, InvalidResponseException, XmlParserException, InternalException {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         String bucketName = auth.getName();
-        String fullObjectName = (directory != null && !directory.isEmpty()) ? directory + "/" + folderName : folderName;
-        InputStream emptyContent = new ByteArrayInputStream(new byte[0]);
-        minioClient.putObject(
-                PutObjectArgs.builder()
-                        .bucket(bucketName)
-                        .object(fullObjectName)
-                        .stream(emptyContent, -1, 10485760)
-                        .build()
-        );
 
         for(MultipartFile file : files){
             minioClient.putObject(PutObjectArgs.builder()
@@ -106,5 +95,93 @@ public class FileServiceImpl implements FileService{
         }
     }
 
+    @Override
+    public Map<String, List<String>> findFile(String query) throws ServerException, InsufficientDataException, ErrorResponseException, IOException, NoSuchAlgorithmException, InvalidKeyException, InvalidResponseException, XmlParserException, InternalException {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        String bucketName = auth.getName();
+
+        Iterable<Result<Item>> results = minioClient.listObjects(ListObjectsArgs.builder().bucket(bucketName).prefix(query).build());
+
+        List<String> fileNames = new ArrayList<>();
+        for (Result<Item> result : results) {
+            Item item = result.get();
+            fileNames.add(item.objectName());
+        }
+
+        List<String> folderNames = fileNames.stream()
+                .filter(name -> name.endsWith("/"))
+                .map(name -> name.substring(0, name.length()-1))
+                .collect(Collectors.toList());
+
+        List<String> fileNamesWithoutFolders = fileNames.stream()
+                .filter(name -> !name.endsWith("/"))
+                .map(name -> name.contains("/")? name.substring(name.indexOf("/")+1): name)
+                .toList();
+
+
+        Map<String,List<String>> filesAndFolders = new HashMap<>();
+
+        filesAndFolders.put("files", fileNamesWithoutFolders);
+        filesAndFolders.put("folders", folderNames);
+
+        return filesAndFolders;
+
+    }
+
+    @Override
+    public void deleteFile(String name, String directory) throws ServerException, InsufficientDataException, ErrorResponseException, IOException, NoSuchAlgorithmException, InvalidKeyException, InvalidResponseException, XmlParserException, InternalException {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        String bucketName = auth.getName();
+        System.out.println(name);
+        System.out.println(directory + name);
+        if (name.endsWith("/")) {
+            // Удаляем папку
+            Iterable<Result<Item>> results = minioClient.listObjects(
+                    ListObjectsArgs.builder()
+                            .bucket(bucketName)
+                            .prefix(name)
+                            .recursive(true)
+                            .build()
+            );
+
+            for (Result<Item> result : results) {
+                Item item = result.get();
+                System.out.println(item.objectName());
+                minioClient.removeObject(
+                        RemoveObjectArgs.builder()
+                                .bucket(bucketName)
+                                .object(item.objectName())
+                                .build()
+                );
+            }
+
+            minioClient.putObject(
+                    PutObjectArgs.builder()
+                            .bucket(bucketName)
+                            .object(name)
+                            .stream(new ByteArrayInputStream(new byte[0]), 0, -1)
+                            .build()
+            );
+
+            minioClient.removeObject(
+                    RemoveObjectArgs.builder()
+                            .bucket(bucketName)
+                            .object(name)
+                            .build()
+            );
+        } else {
+            minioClient.removeObject(
+                    RemoveObjectArgs.builder()
+                            .bucket(bucketName)
+                            .object(directory == null ? name : directory + name)
+                            .build()
+            );
+        }
+    }
+    @Override
+    public void downloadFile(String fileName) {
+
+    }
 
 }
+
